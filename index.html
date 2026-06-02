@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TextCraft AI — Humanizer & Plagiarism Checker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:        #0d0f14;
+      --surface:   #13161e;
+      --card:      #1a1e2a;
+      --border:    #252a38;
+      --gold:      #c9a84c;
+      --gold-dim:  #8a6e2e;
+      --cream:     #f0e6cc;
+      --muted:     #6b7280;
+      --green:     #34d399;
+      --red:       #f87171;
+      --blue:      #60a5fa;
+      --text:      #e8e0d0;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Noise texture overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* Ambient glow */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      width: 800px; height: 500px;
+      background: radial-gradient(ellipse, rgba(201,168,76,0.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px 80px;
+    }
+
+    /* ── HEADER ── */
+    header {
+      text-align: center;
+      margin-bottom: 48px;
+      animation: fadeDown 0.7s ease both;
+    }
+
+    .badge {
+      display: inline-block;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--gold);
+      border: 1px solid var(--gold-dim);
+      padding: 5px 16px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+      background: rgba(201,168,76,0.06);
+    }
+
+    h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.2rem, 5vw, 3.4rem);
+      font-weight: 900;
+      line-height: 1.1;
+      color: var(--cream);
+      margin-bottom: 14px;
+    }
+
+    h1 span { color: var(--gold); }
+
+    .subtitle {
+      font-size: 15px;
+      color: var(--muted);
+      font-weight: 300;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── API KEY SECTION ── */
+    .api-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+
+    .api-icon {
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .api-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+
+    .api-input-row {
+      display: flex;
+      gap: 10px;
+      flex: 1;
+    }
+
+    .api-input {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .api-input:focus { border-color: var(--gold-dim); }
+
+    .save-btn {
+      background: var(--gold);
+      color: #0d0f14;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: 13px;
+      padding: 10px 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      white-space: nowrap;
+    }
+
+    .save-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+    .key-status {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      margin-top: 4px;
+      color: var(--muted);
+    }
+
+    .key-status.saved { color: var(--green); }
+
+    /* ── TABS ── */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 5px;
+      margin-bottom: 24px;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 11px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 400;
+      color: var(--muted);
+      transition: all 0.25s;
+      border: 1px solid transparent;
+      user-select: none;
+    }
+
+    .tab:hover { color: var(--text); background: var(--card); }
+
+    .tab.active {
+      background: var(--card);
+      color: var(--gold);
+      border-color: var(--border);
+      font-weight: 500;
+    }
+
+    /* ── PANELS ── */
+    .panel {
+      display: none;
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .panel.active { display: block; }
+
+    /* ── CARD ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    .card-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2.5px;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 12px;
+    }
+
+    /* ── TEXTAREA ── */
+    textarea {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14.5px;
+      line-height: 1.7;
+      padding: 16px;
+      resize: vertical;
+      min-height: 160px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus { border-color: var(--gold-dim); }
+    textarea::placeholder { color: var(--muted); font-style: italic; }
+
+    /* ── CONTROLS ROW ── */
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .word-count {
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    /* ── SELECT ── */
+    select {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+
+    select:focus { border-color: var(--gold-dim); }
+
+    /* ── BUTTONS ── */
+    .btn-primary {
+      background: linear-gradient(135deg, var(--gold) 0%, #a07830 100%);
+      color: #0a0c10;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 500;
+      font-size: 14px;
+      padding: 11px 28px;
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s, opacity 0.2s;
+      box-shadow: 0 4px 20px rgba(201,168,76,0.2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(201,168,76,0.3);
+    }
+
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      padding: 10px 18px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+
+    /* ── OUTPUT ── */
+    .output-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      min-height: 120px;
+      font-size: 14.5px;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      position: relative;
+    }
+
+    .output-placeholder {
+      color: var(--muted);
+      font-style: italic;
+      font-size: 14px;
+    }
+
+    .output-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+      justify-content: flex-end;
+    }
+
+    /* ── LOADER ── */
+    .loader {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      color: var(--gold);
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+
+    .loader.active { display: flex; }
+
+    .dots span {
+      display: inline-block;
+      width: 6px; height: 6px;
+      background: var(--gold);
+      border-radius: 50%;
+      animation: bounce 1.2s infinite ease-in-out;
+      margin: 0 2px;
+    }
+
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    /* ── PLAGIARISM RESULTS ── */
+    .plag-score-wrap {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .score-card {
+      flex: 1;
+      min-width: 140px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      text-align: center;
+    }
+
+    .score-num {
+      font-family: 'Playfair Display', serif;
+      font-size: 2.6rem;
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .score-num.high { color: var(--green); }
+    .score-num.medium { color: #fbbf24; }
+    .score-num.low { color: var(--red); }
+
+    .score-label {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .plag-bar-wrap {
+      margin-top: 16px;
+    }
+
+    .plag-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 7px;
+    }
+
+    .plag-bar {
+      height: 8px;
+      background: var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+
+    .plag-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 1s cubic-bezier(0.4,0,0.2,1);
+      width: 0%;
+    }
+
+    .fill-green { background: linear-gradient(90deg, #059669, var(--green)); }
+    .fill-yellow { background: linear-gradient(90deg, #d97706, #fbbf24); }
+    .fill-red { background: linear-gradient(90deg, #dc2626, var(--red)); }
+
+    .findings {
+      margin-top: 18px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+    }
+
+    .findings-title {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold-dim);
+      margin-bottom: 12px;
+    }
+
+    .finding-item {
+      display: flex;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+
+    .finding-item:last-child { border-bottom: none; }
+
+    .finding-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 6px;
+    }
+
+    /* ── HUMANIZER OPTIONS ── */
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 480px) { .options-grid { grid-template-columns: 1fr; } }
+
+    .option-pill {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 11px 14px;
+      cursor: pointer;
+      font-size: 13.5px;
+      transition: all 0.2s;
+      user-select: none;
+    }
+
+    .option-pill input[type=checkbox] { accent-color: var(--gold); width: 15px; height: 15px; }
+    .option-pill:hover { border-color: var(--gold-dim); background: rgba(201,168,76,0.04); }
+
+    /* ── ERROR ── */
+    .error-msg {
+      display: none;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.3);
+      color: var(--red);
+      border-radius: 9px;
+      padding: 12px 16px;
+      font-size: 13px;
+      margin-top: 14px;
+      font-family: 'DM Mono', monospace;
+    }
+
+    .error-msg.active { display: block; }
+
+    /* ── FOOTER ── */
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: 'DM Mono', monospace;
+      letter-spacing: 1px;
+      animation: fadeUp 0.6s 0.5s ease both;
+    }
+
+    footer span { color: var(--gold-dim); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40%           { transform: scale(1);   opacity: 1; }
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position: 400px 0; }
+    }
+
+    .shimmer {
+      background: linear-gradient(90deg, var(--card) 25%, var(--border) 50%, var(--card) 75%);
+      background-size: 800px 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 6px;
+      height: 16px;
+      margin: 8px 0;
+    }
+
+    /* copy flash */
+    .copied-flash {
+      position: fixed;
+      bottom: 30px; left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: var(--gold);
+      color: #0a0c10;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 1px;
+      padding: 10px 24px;
+      border-radius: 30px;
+      opacity: 0;
+      transition: all 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .copied-flash.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="badge">✦ AI Writing Studio</div>
+    <h1>TextCraft <span>AI</span></h1>
+    <p class="subtitle">Humanize AI text · Check originality · Write with confidence</p>
+  </header>
+
+  <!-- API KEY -->
+  <div class="api-section">
+    <div class="api-icon">🔑</div>
+    <div style="flex:1">
+      <div class="api-label">Anthropic API Key</div>
+      <div class="api-input-row">
+        <input type="password" class="api-input" id="apiKeyInput" placeholder="sk-ant-api03-..."/>
+        <button class="save-btn" onclick="saveKey()">Save Key</button>
+      </div>
+      <div class="key-status" id="keyStatus">No key saved — enter your key above</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('humanizer')">✍️ &nbsp;AI Humanizer</div>
+    <div class="tab" onclick="switchTab('plagiarism')">🔍 &nbsp;Plagiarism Checker</div>
+    <div class="tab" onclick="switchTab('both')">⚡ &nbsp;Both at Once</div>
+  </div>
+
+  <!-- ═══ HUMANIZER PANEL ═══ -->
+  <div class="panel active" id="panel-humanizer">
+    <div class="card">
+      <div class="card-label">Input — Paste AI-Generated Text</div>
+      <textarea id="hum-input" placeholder="Paste your AI-generated text here... ChatGPT, Claude, Gemini — any AI output works." oninput="updateWordCount('hum-input','hum-wc')"></textarea>
+      <div class="controls">
+        <select id="hum-tone">
+          <option value="natural">🗣 Natural & Conversational</option>
+          <option value="academic">🎓 Academic / Formal</option>
+          <option value="simple">✨ Simple & Clear</option>
+          <option value="persuasive">💬 Persuasive</option>
+          <option value="creative">🌸 Creative & Expressive</option>
+        </select>
+        <select id="hum-level">
+          <option value="moderate">Moderate Rewriting</option>
+          <option value="heavy">Heavy Rewriting</option>
+          <option value="light">Light Polishing</option>
+        </select>
+        <button class="btn-primary" onclick="humanize()" id="hum-btn">
+          <span>✦</span> Humanize Text
+        </button>
+        <span class="word-count" id="hum-wc">0 words</span>
+      </div>
+
+      <!-- Options -->
+      <div class="options-grid">
+        <label class="option-pill">
+          <input type="checkbox" id="opt-vary" checked> Vary sentence length
+        </label>
+        <label class="option-pill">
+          <input type="checkbox" id="opt-idioms" checked> Add natural idioms
+        </label>
+        <label class="option-pill">
+          <input type="checkbox" id="opt-personal"> Add personal touches
+        </label>
+        <label class="option-pill">
+          <input type="checkbox" id="opt-transitions" checked> Improve transitions
+        </label>
+      </div>
+
+      <div class="error-msg" id="hum-error"></div>
+    </div>
+
+    <!-- OUTPUT -->
+    <div class="card">
+      <div class="card-label">Humanized Output</div>
+      <div class="loader" id="hum-loader">
+        <div class="dots"><span></span><span></span><span></span></div>
+        HUMANIZING...
+      </div>
+      <div class="output-box" id="hum-output">
+        <span class="output-placeholder">Your humanized text will appear here...</span>
+      </div>
+      <div class="output-actions">
+        <button class="btn-ghost" onclick="clearPanel('humanizer')">Clear</button>
+        <button class="btn-ghost" onclick="copyOutput('hum-output')">📋 Copy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PLAGIARISM PANEL ═══ -->
+  <div class="panel" id="panel-plagiarism">
+    <div class="card">
+      <div class="card-label">Input — Paste Text to Check</div>
+      <textarea id="plag-input" placeholder="Paste the text you want to check for originality and plagiarism..." oninput="updateWordCount('plag-input','plag-wc')"></textarea>
+      <div class="controls">
+        <button class="btn-primary" onclick="checkPlagiarism()" id="plag-btn">
+          <span>🔍</span> Check Originality
+        </button>
+        <span class="word-count" id="plag-wc">0 words</span>
+      </div>
+      <div class="error-msg" id="plag-error"></div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="card" id="plag-results" style="display:none">
+      <div class="card-label">Originality Report</div>
+      <div class="loader" id="plag-loader">
+        <div class="dots"><span></span><span></span><span></span></div>
+        ANALYSING...
+      </div>
+      <div id="plag-report"></div>
+    </div>
+  </div>
+
+  <!-- ═══ BOTH PANEL ═══ -->
+  <div class="panel" id="panel-both">
+    <div class="card">
+      <div class="card-label">Input — Run Both Tools Together</div>
+      <textarea id="both-input" placeholder="Paste AI text here. We'll humanize it AND check originality simultaneously..." oninput="updateWordCount('both-input','both-wc')"></textarea>
+      <div class="controls">
+        <select id="both-tone">
+          <option value="natural">🗣 Natural</option>
+          <option value="academic">🎓 Academic</option>
+          <option value="simple">✨ Simple</option>
+          <option value="persuasive">💬 Persuasive</option>
+        </select>
+        <button class="btn-primary" onclick="runBoth()" id="both-btn">
+          <span>⚡</span> Run Both
+        </button>
+        <span class="word-count" id="both-wc">0 words</span>
+      </div>
+      <div class="error-msg" id="both-error"></div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;" class="both-grid">
+      <div class="card">
+        <div class="card-label">✍️ Humanized Output</div>
+        <div class="loader" id="both-hum-loader">
+          <div class="dots"><span></span><span></span><span></span></div>
+          HUMANIZING...
+        </div>
+        <div class="output-box" id="both-hum-output">
+          <span class="output-placeholder">Humanized text...</span>
+        </div>
+        <div class="output-actions">
+          <button class="btn-ghost" onclick="copyOutput('both-hum-output')">📋 Copy</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">🔍 Originality Score</div>
+        <div class="loader" id="both-plag-loader">
+          <div class="dots"><span></span><span></span><span></span></div>
+          CHECKING...
+        </div>
+        <div id="both-plag-report">
+          <span class="output-placeholder" style="font-size:14px;font-style:italic;color:var(--muted)">Originality report...</span>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      @media (max-width: 600px) { .both-grid { grid-template-columns: 1fr !important; } }
+    </style>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    Built for <span>personal use</span> · Powered by Claude API · TextCraft AI
+  </footer>
+
+</div>
+
+<!-- Copy flash -->
+<div class="copied-flash" id="copiedFlash">✓ Copied to clipboard</div>
+
+<script>
+// ── KEY MANAGEMENT ──────────────────────────────────────────
+let API_KEY = localStorage.getItem('tc_api_key') || '';
+
+window.onload = () => {
+  if (API_KEY) {
+    document.getElementById('apiKeyInput').value = API_KEY;
+    setKeyStatus(true);
+  }
+};
+
+function saveKey() {
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if (!val.startsWith('sk-')) {
+    document.getElementById('keyStatus').textContent = '✗ Invalid key format';
+    document.getElementById('keyStatus').className = 'key-status';
+    return;
+  }
+  API_KEY = val;
+  localStorage.setItem('tc_api_key', val);
+  setKeyStatus(true);
+}
+
+function setKeyStatus(ok) {
+  const el = document.getElementById('keyStatus');
+  el.textContent = ok ? '✓ Key saved — ready to use' : 'No key saved';
+  el.className = ok ? 'key-status saved' : 'key-status';
+}
+
+// ── TABS ──────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['humanizer','plagiarism','both'][i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// ── WORD COUNT ────────────────────────────────────────────────
+function updateWordCount(inputId, countId) {
+  const text = document.getElementById(inputId).value.trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  document.getElementById(countId).textContent = words + ' words';
+}
+
+// ── CLAUDE API CALL ───────────────────────────────────────────
+async function callClaude(prompt, systemPrompt = '') {
+  if (!API_KEY) throw new Error('No API key — please save your key first.');
+  const body = {
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 1000,
+    messages: [{ role: 'user', content: prompt }]
+  };
+  if (systemPrompt) body.system = systemPrompt;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `API Error ${res.status}`);
+  }
+
+  const data = await res.json();
+  return data.content[0].text;
+}
+
+// ── HUMANIZER ─────────────────────────────────────────────────
+async function humanize() {
+  const text = document.getElementById('hum-input').value.trim();
+  if (!text) return showError('hum-error', 'Please paste some text first.');
+  clearError('hum-error');
+
+  const tone = document.getElementById('hum-tone').value;
+  const level = document.getElementById('hum-level').value;
+  const varySentences = document.getElementById('opt-vary').checked;
+  const addIdioms = document.getElementById('opt-idioms').checked;
+  const addPersonal = document.getElementById('opt-personal').checked;
+  const transitions = document.getElementById('opt-transitions').checked;
+
+  const toneMap = {
+    natural: 'natural, conversational human tone',
+    academic: 'formal academic tone suitable for university submissions',
+    simple: 'simple, clear, easy-to-understand tone',
+    persuasive: 'persuasive, engaging, compelling tone',
+    creative: 'creative, expressive, vivid tone'
+  };
+
+  const levelMap = {
+    light: 'lightly polish the text while keeping most of the original structure',
+    moderate: 'moderately rewrite the text to sound more human',
+    heavy: 'heavily rewrite the text to be completely undetectable as AI-generated'
+  };
+
+  const extras = [];
+  if (varySentences) extras.push('vary sentence lengths naturally (mix short and long)');
+  if (addIdioms) extras.push('incorporate natural idioms and expressions where appropriate');
+  if (addPersonal) extras.push('add subtle personal touches and human perspective');
+  if (transitions) extras.push('improve transitions between sentences and paragraphs');
+
+  const prompt = `Rewrite the following text to sound like it was written by a human. Use a ${toneMap[tone]}. ${levelMap[level]}.
+
+Additional requirements: ${extras.join(', ')}.
+
+IMPORTANT: 
+- Do NOT mention that this is a rewrite or add any explanation
+- Return ONLY the rewritten text, nothing else
+- Keep the same meaning and key information
+- Remove robotic, formulaic, or AI-typical phrases
+
+TEXT TO HUMANIZE:
+${text}`;
+
+  setLoading('hum', true);
+  setBtn('hum-btn', true);
+
+  try {
+    const result = await callClaude(prompt);
+    document.getElementById('hum-output').textContent = result;
+  } catch(e) {
+    showError('hum-error', e.message);
+  } finally {
+    setLoading('hum', false);
+    setBtn('hum-btn', false);
+  }
+}
+
+// ── PLAGIARISM CHECKER ────────────────────────────────────────
+async function checkPlagiarism() {
+  const text = document.getElementById('plag-input').value.trim();
+  if (!text) return showError('plag-error', 'Please paste some text to check.');
+  if (text.split(/\s+/).length < 20) return showError('plag-error', 'Please enter at least 20 words for a meaningful check.');
+  clearError('plag-error');
+
+  const prompt = `Analyze the following text for originality and potential plagiarism. Return your analysis in this EXACT JSON format (no markdown, no explanation, just raw JSON):
+
+{
+  "originalityScore": <number 0-100>,
+  "aiScore": <number 0-100>,
+  "uniquenessScore": <number 0-100>,
+  "verdict": "<Highly Original | Mostly Original | Moderate Risk | High Risk>",
+  "verdictColor": "<green | yellow | red>",
+  "findings": [
+    {"type": "<issue|warning|ok>", "text": "<finding description>"},
+    {"type": "<issue|warning|ok>", "text": "<finding description>"},
+    {"type": "<issue|warning|ok>", "text": "<finding description>"},
+    {"type": "<issue|warning|ok>", "text": "<finding description>"}
+  ],
+  "suggestions": "<one sentence suggestion to improve originality>"
+}
+
+Rules:
+- originalityScore: how original/unique the writing style feels (100 = very original)
+- aiScore: likelihood this was AI-generated (0 = definitely human, 100 = definitely AI)
+- uniquenessScore: how unique the ideas and phrasing are (100 = very unique)
+- findings: exactly 4 findings mixing positive and negative observations
+- Be honest and analytical
+
+TEXT TO ANALYZE:
+${text}`;
+
+  document.getElementById('plag-results').style.display = 'block';
+  setLoading('plag', true);
+  setBtn('plag-btn', true);
+  document.getElementById('plag-report').innerHTML = '';
+
+  try {
+    const raw = await callClaude(prompt);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const data = JSON.parse(clean);
+    renderPlagReport('plag-report', data);
+  } catch(e) {
+    showError('plag-error', e.message.includes('{') ? 'Analysis failed — try again.' : e.message);
+    document.getElementById('plag-results').style.display = 'none';
+  } finally {
+    setLoading('plag', false);
+    setBtn('plag-btn', false);
+  }
+}
+
+// ── RENDER PLAGIARISM REPORT ──────────────────────────────────
+function renderPlagReport(containerId, data) {
+  const container = document.getElementById(containerId);
+  const scoreClass = data.originalityScore >= 70 ? 'high' : data.originalityScore >= 45 ? 'medium' : 'low';
+  const fillClass = data.originalityScore >= 70 ? 'fill-green' : data.originalityScore >= 45 ? 'fill-yellow' : 'fill-red';
+  const aiClass = data.aiScore <= 30 ? 'high' : data.aiScore <= 60 ? 'medium' : 'low';
+
+  const dotColor = (type) => type === 'ok' ? 'var(--green)' : type === 'warning' ? '#fbbf24' : 'var(--red)';
+
+  container.innerHTML = `
+    <div class="plag-score-wrap">
+      <div class="score-card">
+        <div class="score-num ${scoreClass}">${data.originalityScore}%</div>
+        <div class="score-label">Originality</div>
+      </div>
+      <div class="score-card">
+        <div class="score-num ${aiClass}">${data.aiScore}%</div>
+        <div class="score-label">AI Likelihood</div>
+      </div>
+      <div class="score-card">
+        <div class="score-num high">${data.uniquenessScore}%</div>
+        <div class="score-label">Uniqueness</div>
+      </div>
+    </div>
+
+    <div class="plag-bar-wrap" style="margin-top:18px">
+      <div class="plag-bar-label">
+        <span>Originality Score</span><span>${data.originalityScore}%</span>
+      </div>
+      <div class="plag-bar">
+        <div class="plag-bar-fill ${fillClass}" id="bar-orig"></div>
+      </div>
+    </div>
+    <div class="plag-bar-wrap">
+      <div class="plag-bar-label">
+        <span>AI Detection Risk</span><span>${data.aiScore}%</span>
+      </div>
+      <div class="plag-bar">
+        <div class="plag-bar-fill ${data.aiScore > 60 ? 'fill-red' : data.aiScore > 30 ? 'fill-yellow' : 'fill-green'}" id="bar-ai"></div>
+      </div>
+    </div>
+
+    <div class="findings">
+      <div class="findings-title">Detailed Findings</div>
+      ${data.findings.map(f => `
+        <div class="finding-item">
+          <div class="finding-dot" style="background:${dotColor(f.type)}"></div>
+          <div>${f.text}</div>
+        </div>
+      `).join('')}
+      ${data.suggestions ? `
+        <div style="margin-top:14px;padding:12px;background:rgba(201,168,76,0.06);border:1px solid var(--gold-dim);border-radius:8px;font-size:13px;color:var(--cream)">
+          💡 <strong>Suggestion:</strong> ${data.suggestions}
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  setTimeout(() => {
+    const o = document.getElementById('bar-orig');
+    const a = document.getElementById('bar-ai');
+    if (o) o.style.width = data.originalityScore + '%';
+    if (a) a.style.width = data.aiScore + '%';
+  }, 100);
+}
+
+// ── BOTH AT ONCE ──────────────────────────────────────────────
+async function runBoth() {
+  const text = document.getElementById('both-input').value.trim();
+  if (!text) return showError('both-error', 'Please paste some text first.');
+  clearError('both-error');
+
+  const tone = document.getElementById('both-tone').value;
+  const toneMap = { natural:'natural, conversational', academic:'formal academic', simple:'simple and clear', persuasive:'persuasive and engaging' };
+
+  setLoading('both-hum', true);
+  setLoading('both-plag', true);
+  setBtn('both-btn', true);
+
+  document.getElementById('both-hum-output').innerHTML = '';
+  document.getElementById('both-plag-report').innerHTML = '';
+
+  const humPromise = callClaude(
+    `Rewrite this text to sound like it was written by a human with a ${toneMap[tone]} tone. Vary sentence lengths, remove AI patterns, keep the same meaning. Return ONLY the rewritten text:\n\n${text}`
+  );
+
+  const plagPromise = callClaude(
+    `Analyze this text for originality. Return ONLY raw JSON (no markdown):\n{"originalityScore":<0-100>,"aiScore":<0-100>,"uniquenessScore":<0-100>,"verdict":"<text>","verdictColor":"<green|yellow|red>","findings":[{"type":"<ok|warning|issue>","text":"<desc>"},{"type":"<ok|warning|issue>","text":"<desc>"},{"type":"<ok|warning|issue>","text":"<desc>"},{"type":"<ok|warning|issue>","text":"<desc>"}],"suggestions":"<one sentence>"}\n\nTEXT:\n${text}`
+  );
+
+  const [humResult, plagResult] = await Promise.allSettled([humPromise, plagPromise]);
+
+  setLoading('both-hum', false);
+  setLoading('both-plag', false);
+  setBtn('both-btn', false);
+
+  if (humResult.status === 'fulfilled') {
+    document.getElementById('both-hum-output').textContent = humResult.value;
+  } else {
+    document.getElementById('both-hum-output').innerHTML = `<span style="color:var(--red);font-size:13px">${humResult.reason.message}</span>`;
+  }
+
+  if (plagResult.status === 'fulfilled') {
+    try {
+      const clean = plagResult.value.replace(/```json|```/g, '').trim();
+      const data = JSON.parse(clean);
+      renderPlagReport('both-plag-report', data);
+    } catch {
+      document.getElementById('both-plag-report').innerHTML = `<span style="color:var(--red);font-size:13px">Report parse failed — try again.</span>`;
+    }
+  } else {
+    document.getElementById('both-plag-report').innerHTML = `<span style="color:var(--red);font-size:13px">${plagResult.reason.message}</span>`;
+  }
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function setLoading(prefix, on) {
+  const el = document.getElementById(prefix + '-loader');
+  if (el) el.classList.toggle('active', on);
+}
+
+function setBtn(id, disabled) {
+  const b = document.getElementById(id);
+  if (b) b.disabled = disabled;
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = '⚠ ' + msg; el.classList.add('active'); }
+}
+
+function clearError(id) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = ''; el.classList.remove('active'); }
+}
+
+function clearPanel(type) {
+  document.getElementById('hum-input').value = '';
+  document.getElementById('hum-output').innerHTML = '<span class="output-placeholder">Your humanized text will appear here...</span>';
+  document.getElementById('hum-wc').textContent = '0 words';
+  clearError('hum-error');
+}
+
+function copyOutput(id) {
+  const text = document.getElementById(id).textContent;
+  if (!text || text.includes('will appear here')) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const f = document.getElementById('copiedFlash');
+    f.classList.add('show');
+    setTimeout(() => f.classList.remove('show'), 2000);
+  });
+}
+</script>
+</body>
+</html>
